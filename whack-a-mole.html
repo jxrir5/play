@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+    <head>
+        <meta charset="UTF-8">
+        <title>Whack a Mole</title>
+        <link rel="icon" href="favicon.ico" type="image/x-icon">
+        <style>
+            body{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                font-size: 20px;
+                margin: 0px;
+                padding: 30px;
+            }
+
+            .gameData{
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                width: 600px;
+                margin-bottom: 12px;
+            }
+
+            .timer{
+                flex: 1;
+                text-align: center;
+                font-size: 30px;
+                position: relative;
+
+            }
+
+            .scoreBoard{
+                position: absolute; right:0px;
+            }
+            #score{
+                text-align: center;
+                font-size: 30px;
+                color: #c71818;
+
+            }
+            .notice, .highest{
+                text-align: inherit;
+                font-size: 16px;
+                color: #000;
+
+            }
+
+            .notice{
+                font-size: 20px;
+                color: goldenrod;
+                height: 30px;
+            }
+            
+            .game{
+                display: grid;
+                grid-template-columns: repeat(3, 120px);
+                grid-gap: 30px;
+                margin: 30px 0px;
+
+            }
+            
+            .hole{
+                width: 100px;
+                height: 100px;
+                border-radius: 50%;
+                border: 5px solid #000;
+                position: relative;
+             
+            }
+            .mole{
+                width: 75px;
+                height: 78px;
+                object-fit: contain;
+                cursor: pointer;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            
+            button{
+                font-size: 14px;
+                width: 150px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="gameData timer">
+            <p class="timer">00:<span class="timer" id="timesCount">15</span>
+            <br>
+            <span class="timer notice">Press button to play</span>
+            </p>
+
+            <p class="scoreBoard">
+                <span id="score">0</span>
+                <br>
+                <span class="highest">Highest : </span><span class="highest" id="highestScore"></span>
+            </p>
+        </div>
+
+        <main class="game">
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>
+                <div class="hole"></div>  
+        </main>
+        <button id="startBtn">Start</button>
+        
+    <script>
+        const timesCount = document.getElementById("timesCount");
+        const startBtn = document.getElementById("startBtn");
+        const holes = document.querySelectorAll(".hole");
+        const scoreObj = document.getElementById("score");
+        const highestScoreObj = document.getElementById("highestScore");
+        const noticeMsg = document.querySelector(".notice");
+        
+        const stateData = {
+            gameInterval: null, 
+            moleInterval: null, 
+            timesLeft: 15, 
+            isPaused: false,
+            isGameOver: false
+        }
+        // Show the highest score
+        highestScoreObj.innerHTML = getHighestScore();
+
+
+        function getHighestScore(){
+            return Number(localStorage.getItem("highestScore")) || 0;
+        }
+        
+        function randomHole(){
+            const i = Math.floor(Math.random() * holes.length);
+            return holes[i];
+        }
+        
+        function showMole(){
+            let hole = randomHole();
+            hole.innerHTML = "";
+            
+            const mole = document.createElement("img");
+            mole.classList.add("mole");
+            mole.src = "sushi.png";
+            hole.appendChild(mole);
+            mole.addEventListener("click", moleHit);
+            
+            setTimeout(() => {
+                if(!stateData.isPaused){
+                    mole.remove();
+                }
+            }, 1800);
+        }
+        
+        function moleHit(event){
+            if(stateData.isGameOver){
+                return;
+            }
+
+            let score = Number(scoreObj.innerText);
+            score++;
+            scoreObj.innerText = score;
+            event.target.remove();
+        }
+        
+        function saveScore(){
+            let score = Number(scoreObj.innerText);
+            let highestScore = getHighestScore();
+            highestScore = Math.max(score, highestScore);
+            localStorage.setItem("highestScore", highestScore);
+            return highestScore;
+        }
+
+        startBtn.addEventListener("click", countToStart);
+        
+        function countToStart(){
+            let start = 3;
+            stateData.timesLeft = 15;
+            timesCount.innerText = 15;
+            scoreObj.innerText = 0;
+
+            noticeMsg.style.visibility = "visible";
+            noticeMsg.innerText = start;
+            
+            let readyInterval = setInterval(() => {
+                start--;
+                noticeMsg.innerText = start > 0 ? start : "Go!";
+                
+                if (start === 0){
+                    clearInterval(readyInterval);
+                    setTimeout(() => {
+                        noticeMsg.style.visibility = "hidden";
+                        gameStart();
+                        startBtn.removeEventListener("click", countToStart);
+                        startBtn.addEventListener("click", gamePause);
+                        startBtn.innerText = "Pause";
+                    }, 1000);
+                }
+            }, 1000);
+        }
+        
+        function gameLoops(){
+            stateData.moleInterval = setInterval(() => {
+                if (!stateData.isPaused){
+                    showMole();
+                }    
+            }, 600);
+
+            stateData.gameInterval = setInterval(() => {
+                if (!stateData.isPaused){
+                    stateData.timesLeft--;
+                    if (stateData.timesLeft < 10){
+                        timesCount.innerText = `0${stateData.timesLeft}`;
+                    }else{
+                        timesCount.innerText = stateData.timesLeft;
+                    }
+                    
+                    if (stateData.timesLeft === 0){
+                        clearInterval(stateData.gameInterval);
+                        clearInterval(stateData.moleInterval);
+                        stateData.isGameOver = true;
+                        noticeMsg.style = "color: #c71818";
+                        noticeMsg.innerText = "Times Up!";
+                        setTimeout(() => {
+                            noticeMsg.style = "color: goldenrod";
+                            noticeMsg.innerText = `You got ${scoreObj.innerText} !`;
+                            noticeMsg.style.visibility = "visible";
+                            highestScoreObj.innerText = saveScore();
+                            // Play Again
+                            playAgain();
+                        }, 1000);
+                    }
+                }
+            }, 1000);
+        }
+
+        function gameStart(){
+            clearInterval(stateData.gameInterval);
+            clearInterval(stateData.moleInterval);
+            stateData.isPaused = false;
+            stateData.isGameOver = false;
+            startBtn.innerText = "Pause";
+            gameLoops();   
+        }
+
+        function gamePause(){
+            stateData.isPaused = true;
+            stateData.isGameOver = true;
+            clearInterval(stateData.gameInterval);
+            clearInterval(stateData.moleInterval);
+
+            startBtn.removeEventListener("click", gamePause);
+            startBtn.addEventListener("click", gameResume);
+            startBtn.innerText = "Resume";
+        }
+
+        function gameResume(){
+            stateData.isPaused = false;
+            stateData.isGameOver = false;
+            gameLoops();
+            
+            startBtn.removeEventListener("click", gameResume);
+            startBtn.addEventListener("click", gamePause);
+            startBtn.innerText = "Pause";
+
+        }
+
+        function playAgain(){
+            startBtn.innerText = "Play Again";
+                startBtn.removeEventListener("click", gamePause);
+                startBtn.removeEventListener("click", gameResume);
+                startBtn.addEventListener("click", countToStart);
+        }
+                
+
+    </script>
+    </body>
+</html>
